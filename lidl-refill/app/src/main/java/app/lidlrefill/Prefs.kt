@@ -22,7 +22,7 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putLong("thresholdMb", v).apply()
     /** Защита от расходов: максимум Refill за сутки. */
     var maxPerDay: Int
-        get() = sp.getInt("maxPerDay", 10)
+        get() = sp.getInt("maxPerDay", 0)
         set(v) = sp.edit().putInt("maxPerDay", v).apply()
     var enabled: Boolean
         get() = sp.getBoolean("enabled", false)

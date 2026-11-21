@@ -43,7 +43,7 @@ class MainActivity : Activity() {
         text = field(root, "Текст SMS", p.text, false)
         pack = field(root, "Сколько МБ даёт один Refill", p.packMb.toString(), true)
         thr = field(root, "Слать Refill, когда осталось ≤ (МБ)", p.thresholdMb.toString(), true)
-        maxDay = field(root, "Максимум Refill в сутки (защита от лишних трат)", p.maxPerDay.toString(), true)
+        maxDay = field(root, "Максимум Refill в сутки (0 = без ограничений)", p.maxPerDay.toString(), true)
         remaining = field(root, "Сколько МБ осталось СЕЙЧАС (посмотри в приложении оператора)", "", true)
 
         root.addView(Button(this).apply {
@@ -71,7 +71,7 @@ class MainActivity : Activity() {
         p.text = text.text.toString().ifBlank { "Refill" }
         p.packMb = pack.text.toString().toLongOrNull() ?: 1024
         p.thresholdMb = thr.text.toString().toLongOrNull() ?: 50
-        p.maxPerDay = maxDay.text.toString().toIntOrNull() ?: 10
+        p.maxPerDay = maxDay.text.toString().toIntOrNull() ?: 0
     }
 
     private fun onToggle() {

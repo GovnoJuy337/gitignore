@@ -75,7 +75,7 @@ class RefillService : Service() {
             if (now - p.lastSentTime < 3 * 60_000) return // пауза между SMS
             val day = now / 86_400_000
             if (p.dayKey != day) { p.dayKey = day; p.sentToday = 0 }
-            if (p.sentToday >= p.maxPerDay) {
+            if (p.maxPerDay > 0 && p.sentToday >= p.maxPerDay) {
                 addLog(p, "Лимит ${p.maxPerDay} Refill в сутки достигнут, SMS не отправлено")
                 p.lastSentTime = now
                 return
