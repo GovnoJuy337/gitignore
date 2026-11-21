@@ -1,0 +1,51 @@
+package app.lidlrefill
+
+import android.content.Context
+
+/** Все настройки и состояние счётчика. */
+class Prefs(ctx: Context) {
+    private val sp = ctx.getSharedPreferences("refill", Context.MODE_PRIVATE)
+
+    var number: String
+        get() = sp.getString("number", "") ?: ""
+        set(v) = sp.edit().putString("number", v.trim()).apply()
+    var text: String
+        get() = sp.getString("text", "Refill") ?: "Refill"
+        set(v) = sp.edit().putString("text", v.trim()).apply()
+    /** Сколько МБ даёт один Refill. */
+    var packMb: Long
+        get() = sp.getLong("packMb", 1024)
+        set(v) = sp.edit().putLong("packMb", v).apply()
+    /** Отправлять Refill, когда осталось не больше N МБ. */
+    var thresholdMb: Long
+        get() = sp.getLong("thresholdMb", 50)
+        set(v) = sp.edit().putLong("thresholdMb", v).apply()
+    /** Защита от расходов: максимум Refill за сутки. */
+    var maxPerDay: Int
+        get() = sp.getInt("maxPerDay", 10)
+        set(v) = sp.edit().putInt("maxPerDay", v).apply()
+    var enabled: Boolean
+        get() = sp.getBoolean("enabled", false)
+        set(v) = sp.edit().putBoolean("enabled", v).apply()
+
+    // Состояние: на момент baselineTime оставалось baselineRemainingMb.
+    var baselineTime: Long
+        get() = sp.getLong("baselineTime", 0)
+        set(v) = sp.edit().putLong("baselineTime", v).apply()
+    var baselineRemainingMb: Long
+        get() = sp.getLong("baselineRemainingMb", 0)
+        set(v) = sp.edit().putLong("baselineRemainingMb", v).apply()
+
+    var lastSentTime: Long
+        get() = sp.getLong("lastSentTime", 0)
+        set(v) = sp.edit().putLong("lastSentTime", v).apply()
+    var dayKey: Long
+        get() = sp.getLong("dayKey", 0)
+        set(v) = sp.edit().putLong("dayKey", v).apply()
+    var sentToday: Int
+        get() = sp.getInt("sentToday", 0)
+        set(v) = sp.edit().putInt("sentToday", v).apply()
+    var log: String
+        get() = sp.getString("log", "") ?: ""
+        set(v) = sp.edit().putString("log", v).apply()
+}
