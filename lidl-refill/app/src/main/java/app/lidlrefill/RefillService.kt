@@ -134,7 +134,11 @@ class RefillService : Service() {
             }
             try {
                 @Suppress("DEPRECATION")
-                SmsManager.getSmsManagerForSubscriptionId(sub).sendTextMessage(p.number, null, p.text, null, null)
+                val sent = PendingIntent.getBroadcast(
+                    ctx, 0, Intent(ctx, SmsSentReceiver::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                SmsManager.getSmsManagerForSubscriptionId(sub).sendTextMessage(p.number, null, p.text, sent, null)
             } catch (e: Exception) {
                 addLog(p, "Не удалось отправить SMS: ${e.message}"); return
             }

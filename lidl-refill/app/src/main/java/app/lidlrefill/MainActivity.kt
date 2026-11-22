@@ -79,7 +79,12 @@ class MainActivity : Activity() {
         refreshUi()
     }
 
-    override fun onResume() { super.onResume(); refreshUi() }
+    override fun onResume() {
+        super.onResume()
+        // Служба могла остановиться (обновление приложения, система) — поднимаем её.
+        if (p.enabled) try { RefillService.start(this) } catch (_: Exception) {}
+        refreshUi()
+    }
 
     private fun save() {
         p.number = number.text.toString()
