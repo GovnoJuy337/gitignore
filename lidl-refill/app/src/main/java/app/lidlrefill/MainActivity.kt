@@ -46,7 +46,7 @@ class MainActivity : Activity() {
 
         number = field(root, "Номер, куда слать SMS (из инструкции Lidl)", p.number, false)
         number.inputType = InputType.TYPE_CLASS_PHONE
-        root.addView(TextView(this).apply { this.text = "С какой SIM отправлять (нужна SIM Lidl!)"; setPadding(0, 24, 0, 0) })
+        root.addView(TextView(this).apply { this.text = "SIM Lidl (SMS шлются ТОЛЬКО с неё)"; setPadding(0, 24, 0, 0) })
         sim = Spinner(this)
         root.addView(sim)
         text = field(root, "Текст SMS", p.text, false)
@@ -103,6 +103,8 @@ class MainActivity : Activity() {
         val rem = remaining.text.toString().toLongOrNull()
         when {
             p.number.isEmpty() -> toast("Введи номер для SMS")
+            p.subId < 0 && checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED ->
+                toast("Выбери SIM Lidl в списке")
             else -> {
                 val need = mutableListOf<String>()
                 if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)
@@ -130,7 +132,8 @@ class MainActivity : Activity() {
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
     private fun loadSims() {
-        val names = mutableListOf("SIM по умолчанию для SMS")
+        RefillService.lidlSubId(this) // автопоиск SIM с «Lidl» в названии
+        val names = mutableListOf("— не выбрана (SMS отправляться не будут) —")
         val ids = mutableListOf(-1)
         if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
             try {

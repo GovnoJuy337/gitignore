@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.telephony.SmsManager
+import android.telephony.SubscriptionManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -97,9 +98,21 @@ class RefillService : Service() {
             sendRefill(ctx, "по счётчику осталось ~$rem МБ")
         }
 
-        private fun smsManager(ctx: Context, subId: Int): SmsManager {
-            @Suppress("DEPRECATION")
-            return if (subId >= 0) SmsManager.getSmsManagerForSubscriptionId(subId) else SmsManager.getDefault()
+        /** Ищет SIM Lidl: сохранённая (выбрана вручную или пришло SMS от Lidl) или по имени оператора. -1 = не найдена. */
+        fun lidlSubId(ctx: Context): Int {
+            val p = Prefs(ctx)
+            if (p.subId >= 0) return p.subId
+            try {
+                ctx.getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList
+                    ?.firstOrNull {
+                        "${it.displayName} ${it.carrierName}".contains("lidl", ignoreCase = true)
+                    }?.let {
+                        p.subId = it.subscriptionId
+                        addLog(p, "SIM Lidl найдена по имени: ${it.displayName}")
+                        return it.subscriptionId
+                    }
+            } catch (_: SecurityException) {}
+            return -1
         }
 
         fun sendRefill(ctx: Context, reason: String) {
@@ -112,8 +125,16 @@ class RefillService : Service() {
                 p.lastSentTime = now
                 return
             }
+            val sub = lidlSubId(ctx)
+            if (sub < 0) {
+                // Никогда не шлём с другой SIM (Kyivstar и т.п.).
+                addLog(p, "SIM Lidl не выбрана — SMS НЕ отправлено. Выбери SIM Lidl в настройках")
+                p.lastSentTime = now
+                return
+            }
             try {
-                smsManager(ctx, p.subId).sendTextMessage(p.number, null, p.text, null, null)
+                @Suppress("DEPRECATION")
+                SmsManager.getSmsManagerForSubscriptionId(sub).sendTextMessage(p.number, null, p.text, null, null)
             } catch (e: Exception) {
                 addLog(p, "Не удалось отправить SMS: ${e.message}"); return
             }
