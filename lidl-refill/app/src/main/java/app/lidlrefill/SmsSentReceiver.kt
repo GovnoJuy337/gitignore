@@ -20,8 +20,14 @@ class SmsSentReceiver : BroadcastReceiver() {
             else -> "SMS НЕ ушло: ошибка $resultCode"
         }
         RefillService.addLog(p, msg)
-        if (resultCode != Activity.RESULT_OK) {
-            // Не ждём 3 минуты подтверждения — попробуем снова на следующей проверке через минуту.
+        if (resultCode == Activity.RESULT_OK) {
+            // Refill ушёл — Lidl восстанавливает остаток до полного пакета. Подтверждение не ждём.
+            if (p.baselineTime != 0L) {
+                RefillService.resetCounter(ctx, p.packMb)
+                RefillService.addLog(p, "Остаток сброшен до ${p.packMb} МБ")
+            }
+        } else {
+            // Не ушло — пробуем снова примерно через минуту.
             p.lastSentTime = System.currentTimeMillis() - 2 * 60_000
         }
     }

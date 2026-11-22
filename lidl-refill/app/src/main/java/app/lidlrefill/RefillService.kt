@@ -83,12 +83,6 @@ class RefillService : Service() {
             val p = Prefs(ctx)
             if (!p.enabled || p.number.isEmpty()) return
             val now = System.currentTimeMillis()
-            // Отправили Refill, но подтверждения нет 3 минуты — повторяем.
-            if (p.awaitingConfirm) {
-                if (now - p.lastSentTime >= 3 * 60_000)
-                    sendRefill(ctx, "подтверждение не пришло за 3 мин, повтор")
-                return
-            }
             if (p.baselineTime == 0L) return // режим «только по SMS от Lidl»
             val rem = try { remainingMb(ctx) } catch (e: Exception) {
                 addLog(p, "Ошибка чтения трафика: ${e.message}"); return
@@ -144,8 +138,7 @@ class RefillService : Service() {
             }
             p.sentToday += 1
             p.lastSentTime = now
-            p.awaitingConfirm = true
-            addLog(p, "Отправлено «${p.text}» на ${p.number} ($reason). Жду подтверждение…")
+            addLog(p, "Отправляю «${p.text}» на ${p.number} ($reason)…")
         }
 
         private fun matches(pattern: String, body: String): Boolean {
@@ -154,15 +147,11 @@ class RefillService : Service() {
         }
         fun isWarning(p: Prefs, body: String) = matches(p.warnText, body)
 
-        /** Пришло SMS «Nachbuchoption ist jetzt gebucht» — засчитываем пакет. */
+        /** Пришло SMS «Nachbuchoption ist jetzt gebucht». Остаток уже сброшен при отправке — только пишем в журнал. */
         fun onConfirmed(ctx: Context) {
             val p = Prefs(ctx)
             p.awaitingConfirm = false
-            p.lastSentTime = 0
-            if (p.baselineTime == 0L) { addLog(p, "Lidl подтвердил пополнение"); return }
-            // Refill не прибавляет, а сбрасывает остаток до полного пакета.
-            resetCounter(ctx, p.packMb)
-            addLog(p, "Lidl подтвердил пополнение. Теперь ~${p.baselineRemainingMb} МБ")
+            addLog(p, "Lidl подтвердил пополнение")
         }
 
         fun isConfirmation(p: Prefs, body: String) = matches(p.confirmText, body)

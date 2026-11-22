@@ -54,7 +54,7 @@ class MainActivity : Activity() {
         thr = field(root, "Слать Refill, когда осталось ≤ (МБ)", p.thresholdMb.toString(), true)
         interval = field(root, "Проверять трафик каждые (секунд, минимум 5)", p.checkSec.toString(), true)
         maxDay = field(root, "Максимум Refill в сутки (0 = без ограничений)", p.maxPerDay.toString(), true)
-        confirm = field(root, "Текст SMS-подтверждения от Lidl (часть)", p.confirmText, false)
+        confirm = field(root, "Текст SMS-подтверждения от Lidl (часть, только для журнала)", p.confirmText, false)
         root.addView(TextView(this).apply { this.text = "Текст SMS-предупреждения от Lidl (часть)"; setPadding(0, 24, 0, 0) })
         warn = EditText(this).apply { setText(p.warnText) }
         root.addView(warn)
@@ -161,7 +161,7 @@ class MainActivity : Activity() {
         status.text = "Работает: ${if (p.enabled) "да" else "нет"}\n" +
             "Оценка остатка: $est\n" +
             "Refill сегодня: ${p.sentToday}\n" +
-            (if (p.awaitingConfirm) "Жду SMS-подтверждение от Lidl\n" else "") + "\n" + p.log
+"\n" + p.log
         status.visibility = View.VISIBLE
     }
 }
