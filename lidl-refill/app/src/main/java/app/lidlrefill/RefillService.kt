@@ -65,18 +65,31 @@ class RefillService : Service() {
 
         fun check(ctx: Context) {
             val p = Prefs(ctx)
-            if (!p.enabled || p.number.isEmpty() || p.baselineTime == 0L) return
+            if (!p.enabled || p.number.isEmpty()) return
+            val now = System.currentTimeMillis()
+            // Отправили Refill, но подтверждения нет 3 минуты — повторяем.
+            if (p.awaitingConfirm) {
+                if (now - p.lastSentTime >= 3 * 60_000)
+                    sendRefill(ctx, "подтверждение не пришло за 3 мин, повтор")
+                return
+            }
+            if (p.baselineTime == 0L) return // режим «только по SMS от Lidl»
             val rem = try { remainingMb(ctx) } catch (e: Exception) {
                 addLog(p, "Ошибка чтения трафика: ${e.message}"); return
             }
             if (rem > p.thresholdMb) return
-
-            val now = System.currentTimeMillis()
-            // Ждём SMS-подтверждение от Lidl до 3 минут, потом пробуем ещё раз.
             if (now - p.lastSentTime < 3 * 60_000) return
-            if (p.lastSentTime != 0L && p.awaitingConfirm) {
-                addLog(p, "Подтверждение от Lidl не пришло за 3 мин — отправляю Refill повторно")
-            }
+            sendRefill(ctx, "по счётчику осталось ~$rem МБ")
+        }
+
+        private fun smsManager(ctx: Context, subId: Int): SmsManager {
+            @Suppress("DEPRECATION")
+            return if (subId >= 0) SmsManager.getSmsManagerForSubscriptionId(subId) else SmsManager.getDefault()
+        }
+
+        fun sendRefill(ctx: Context, reason: String) {
+            val p = Prefs(ctx)
+            val now = System.currentTimeMillis()
             val day = now / 86_400_000
             if (p.dayKey != day) { p.dayKey = day; p.sentToday = 0 }
             if (p.maxPerDay > 0 && p.sentToday >= p.maxPerDay) {
@@ -85,32 +98,35 @@ class RefillService : Service() {
                 return
             }
             try {
-                SmsManager.getDefault().sendTextMessage(p.number, null, p.text, null, null)
+                smsManager(ctx, p.subId).sendTextMessage(p.number, null, p.text, null, null)
             } catch (e: Exception) {
                 addLog(p, "Не удалось отправить SMS: ${e.message}"); return
             }
             p.sentToday += 1
             p.lastSentTime = now
             p.awaitingConfirm = true
-            addLog(p, "Отправлено «${p.text}» на ${p.number} (осталось ~$rem МБ). Жду подтверждение…")
+            addLog(p, "Отправлено «${p.text}» на ${p.number} ($reason). Жду подтверждение…")
         }
+
+        private fun matches(pattern: String, body: String): Boolean {
+            val norm = { s: String -> s.lowercase().replace(Regex("\\s+"), " ").trim() }
+            return pattern.isNotBlank() && norm(body).contains(norm(pattern))
+        }
+        fun isWarning(p: Prefs, body: String) = matches(p.warnText, body)
 
         /** Пришло SMS «Nachbuchoption ist jetzt gebucht» — засчитываем пакет. */
         fun onConfirmed(ctx: Context) {
             val p = Prefs(ctx)
-            if (p.baselineTime == 0L) return
+            p.awaitingConfirm = false
+            p.lastSentTime = 0
+            if (p.baselineTime == 0L) { addLog(p, "Lidl подтвердил пополнение"); return }
             val rem = try { remainingMb(ctx) } catch (e: Exception) { p.baselineRemainingMb }
             p.baselineRemainingMb = maxOf(rem, 0) + p.packMb
             p.baselineTime = System.currentTimeMillis()
-            p.awaitingConfirm = false
-            p.lastSentTime = 0
             addLog(p, "Lidl подтвердил пополнение. Теперь ~${p.baselineRemainingMb} МБ")
         }
 
-        fun isConfirmation(p: Prefs, body: String): Boolean {
-            val norm = { s: String -> s.lowercase().replace(Regex("\\s+"), " ").trim() }
-            return p.confirmText.isNotBlank() && norm(body).contains(norm(p.confirmText))
-        }
+        fun isConfirmation(p: Prefs, body: String) = matches(p.confirmText, body)
 
         fun addLog(p: Prefs, msg: String) {
             val t = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()).format(Date())

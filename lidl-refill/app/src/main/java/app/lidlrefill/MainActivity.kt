@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
+import android.telephony.SubscriptionManager
 import android.text.InputType
 import android.view.View
 import android.widget.*
@@ -21,6 +22,9 @@ class MainActivity : Activity() {
     private lateinit var maxDay: EditText
     private lateinit var remaining: EditText
     private lateinit var confirm: EditText
+    private lateinit var warn: EditText
+    private lateinit var sim: Spinner
+    private var simIds = listOf(-1)
     private lateinit var status: TextView
     private lateinit var toggle: Button
 
@@ -41,12 +45,18 @@ class MainActivity : Activity() {
 
         number = field(root, "Номер, куда слать SMS (из инструкции Lidl)", p.number, false)
         number.inputType = InputType.TYPE_CLASS_PHONE
+        root.addView(TextView(this).apply { this.text = "С какой SIM отправлять (нужна SIM Lidl!)"; setPadding(0, 24, 0, 0) })
+        sim = Spinner(this)
+        root.addView(sim)
         text = field(root, "Текст SMS", p.text, false)
         pack = field(root, "Сколько МБ даёт один Refill", p.packMb.toString(), true)
         thr = field(root, "Слать Refill, когда осталось ≤ (МБ)", p.thresholdMb.toString(), true)
         maxDay = field(root, "Максимум Refill в сутки (0 = без ограничений)", p.maxPerDay.toString(), true)
         confirm = field(root, "Текст SMS-подтверждения от Lidl (часть)", p.confirmText, false)
-        remaining = field(root, "Сколько МБ осталось СЕЙЧАС (посмотри в приложении оператора)", "", true)
+        root.addView(TextView(this).apply { this.text = "Текст SMS-предупреждения от Lidl (часть)"; setPadding(0, 24, 0, 0) })
+        warn = EditText(this).apply { setText(p.warnText) }
+        root.addView(warn)
+        remaining = field(root, "Сколько МБ осталось СЕЙЧАС (можно оставить пустым — тогда только по SMS от Lidl)", "", true)
 
         root.addView(Button(this).apply {
             this.text = "1. Выдать разрешение на статистику трафика"
@@ -74,6 +84,8 @@ class MainActivity : Activity() {
         p.packMb = pack.text.toString().toLongOrNull() ?: 1024
         p.thresholdMb = thr.text.toString().toLongOrNull() ?: 50
         p.confirmText = confirm.text.toString()
+        p.warnText = warn.text.toString()
+        p.subId = simIds.getOrElse(sim.selectedItemPosition) { -1 }
         p.maxPerDay = maxDay.text.toString().toIntOrNull() ?: 0
     }
 
@@ -87,12 +99,13 @@ class MainActivity : Activity() {
         val rem = remaining.text.toString().toLongOrNull()
         when {
             p.number.isEmpty() -> toast("Введи номер для SMS")
-            rem == null -> toast("Введи текущий остаток МБ")
-            !hasUsageAccess() -> toast("Сначала выдай доступ к статистике трафика (кнопка 1)")
+            rem != null && !hasUsageAccess() -> toast("Сначала выдай доступ к статистике трафика (кнопка 1)")
             else -> {
                 val need = mutableListOf<String>()
                 if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)
                     need += Manifest.permission.SEND_SMS
+                if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED)
+                    need += Manifest.permission.READ_PHONE_STATE
                 if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED)
                     need += Manifest.permission.RECEIVE_SMS
                 if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
@@ -101,8 +114,8 @@ class MainActivity : Activity() {
                     requestPermissions(need.toTypedArray(), 1)
                     toast("Разреши SMS и уведомления, затем нажми ещё раз"); return
                 }
-                p.baselineRemainingMb = rem
-                p.baselineTime = System.currentTimeMillis()
+                p.baselineRemainingMb = rem ?: 0
+                p.baselineTime = if (rem != null) System.currentTimeMillis() else 0
                 p.awaitingConfirm = false
                 p.lastSentTime = 0
                 p.enabled = true
@@ -114,9 +127,27 @@ class MainActivity : Activity() {
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
+    private fun loadSims() {
+        val names = mutableListOf("SIM по умолчанию для SMS")
+        val ids = mutableListOf(-1)
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList?.forEach {
+                    names += "SIM ${it.simSlotIndex + 1}: ${it.displayName} (${it.carrierName})"
+                    ids += it.subscriptionId
+                }
+            } catch (_: SecurityException) {}
+        } else names[0] += " (разреши «Телефон», чтобы выбрать SIM)"
+        if (p.subId >= 0 && p.subId !in ids) { names += "SIM id ${p.subId} (определена по SMS)"; ids += p.subId }
+        simIds = ids
+        sim.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, names)
+        sim.setSelection(ids.indexOf(p.subId).coerceAtLeast(0))
+    }
+
     private fun refreshUi() {
+        loadSims()
         toggle.text = if (p.enabled) "Остановить" else "2. Запустить"
-        val est = if (p.enabled) try { "≈ ${RefillService.remainingMb(this)} МБ" } catch (e: Exception) { "?" } else "—"
+        val est = if (p.enabled && p.baselineTime == 0L) "не считается (режим по SMS)" else if (p.enabled) try { "≈ ${RefillService.remainingMb(this)} МБ" } catch (e: Exception) { "?" } else "—"
         status.text = "Доступ к статистике: ${if (hasUsageAccess()) "есть" else "НЕТ"}\n" +
             "Работает: ${if (p.enabled) "да" else "нет"}\n" +
             "Оценка остатка: $est\n" +

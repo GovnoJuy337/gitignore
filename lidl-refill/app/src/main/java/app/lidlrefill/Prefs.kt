@@ -7,7 +7,7 @@ class Prefs(ctx: Context) {
     private val sp = ctx.getSharedPreferences("refill", Context.MODE_PRIVATE)
 
     var number: String
-        get() = sp.getString("number", "") ?: ""
+        get() = sp.getString("number", "80808") ?: ""
         set(v) = sp.edit().putString("number", v.trim()).apply()
     var text: String
         get() = sp.getString("text", "Refill") ?: "Refill"
@@ -52,6 +52,14 @@ class Prefs(ctx: Context) {
     var confirmText: String
         get() = sp.getString("confirmText", "Nachbuchoption ist jetzt gebucht") ?: ""
         set(v) = sp.edit().putString("confirmText", v.trim()).apply()
+    /** SIM для отправки: subscriptionId, -1 = SIM по умолчанию для SMS. */
+    var subId: Int
+        get() = sp.getInt("subId", -1)
+        set(v) = sp.edit().putInt("subId", v).apply()
+    /** Кусок текста SMS-предупреждения «почти израсходовано». */
+    var warnText: String
+        get() = sp.getString("warnText", "fast verbraucht") ?: ""
+        set(v) = sp.edit().putString("warnText", v.trim()).apply()
     var log: String
         get() = sp.getString("log", "") ?: ""
         set(v) = sp.edit().putString("log", v).apply()
