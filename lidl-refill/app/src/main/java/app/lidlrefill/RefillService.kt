@@ -1,10 +1,9 @@
 package app.lidlrefill
 
 import android.app.*
-import android.app.usage.NetworkStatsManager
 import android.content.Context
 import android.content.Intent
-import android.net.NetworkCapabilities
+import android.net.TrafficStats
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -46,18 +45,34 @@ class RefillService : Service() {
     }
 
     companion object {
-        /** Мобильный трафик (МБ) с момента since. */
-        fun usedMb(ctx: Context, since: Long): Long {
-            val nsm = ctx.getSystemService(NetworkStatsManager::class.java)
-            val b = nsm.querySummaryForDevice(
-                NetworkCapabilities.TRANSPORT_CELLULAR, null, since, System.currentTimeMillis()
-            )
-            return (b.rxBytes + b.txBytes) / (1024 * 1024)
+        /** Счётчик мобильного трафика Android с момента включения телефона (байты, точный, в реальном времени). */
+        private fun mobileBytes(): Long = TrafficStats.getMobileRxBytes() + TrafficStats.getMobileTxBytes()
+
+        /** Прибавляет к накопленному расходу то, что потрачено с прошлой проверки. */
+        @Synchronized
+        fun poll(ctx: Context) {
+            val p = Prefs(ctx)
+            val cur = mobileBytes()
+            if (cur < 0) return
+            // Если счётчик уменьшился — телефон перезагружался, считаем с нуля.
+            val delta = if (cur >= p.lastCounter) cur - p.lastCounter else cur
+            p.usedBytes += delta
+            p.lastCounter = cur
+        }
+
+        /** Начать отсчёт заново: сейчас осталось remMb. */
+        fun resetCounter(ctx: Context, remMb: Long) {
+            val p = Prefs(ctx)
+            p.baselineRemainingMb = remMb
+            p.baselineTime = System.currentTimeMillis()
+            p.usedBytes = 0
+            p.lastCounter = maxOf(mobileBytes(), 0)
         }
 
         fun remainingMb(ctx: Context): Long {
+            poll(ctx)
             val p = Prefs(ctx)
-            return p.baselineRemainingMb - usedMb(ctx, p.baselineTime)
+            return p.baselineRemainingMb - p.usedBytes / (1024 * 1024)
         }
 
         fun start(ctx: Context) = ctx.startForegroundService(Intent(ctx, RefillService::class.java))
@@ -121,8 +136,7 @@ class RefillService : Service() {
             p.lastSentTime = 0
             if (p.baselineTime == 0L) { addLog(p, "Lidl подтвердил пополнение"); return }
             val rem = try { remainingMb(ctx) } catch (e: Exception) { p.baselineRemainingMb }
-            p.baselineRemainingMb = maxOf(rem, 0) + p.packMb
-            p.baselineTime = System.currentTimeMillis()
+            resetCounter(ctx, maxOf(rem, 0) + p.packMb)
             addLog(p, "Lidl подтвердил пополнение. Теперь ~${p.baselineRemainingMb} МБ")
         }
 

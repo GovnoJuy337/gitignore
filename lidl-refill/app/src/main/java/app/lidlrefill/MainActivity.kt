@@ -61,8 +61,16 @@ class MainActivity : Activity() {
         remaining = field(root, "Сколько МБ осталось СЕЙЧАС (можно оставить пустым — тогда только по SMS от Lidl)", "", true)
 
         root.addView(Button(this).apply {
-            this.text = "1. Выдать разрешение на статистику трафика"
-            setOnClickListener { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+            this.text = "Задать остаток (не останавливая)"
+            setOnClickListener {
+                val r = remaining.text.toString().toLongOrNull()
+                if (r == null) toast("Введи остаток в МБ") else {
+                    RefillService.resetCounter(this@MainActivity, r)
+                    RefillService.addLog(p, "Остаток задан вручную: $r МБ")
+                    remaining.setText("")
+                    refreshUi()
+                }
+            }
         })
         toggle = Button(this).apply { setOnClickListener { onToggle() } }
         root.addView(toggle)
@@ -72,13 +80,6 @@ class MainActivity : Activity() {
     }
 
     override fun onResume() { super.onResume(); refreshUi() }
-
-    private fun hasUsageAccess(): Boolean {
-        val ops = getSystemService(AppOpsManager::class.java)
-        return ops.unsafeCheckOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName
-        ) == AppOpsManager.MODE_ALLOWED
-    }
 
     private fun save() {
         p.number = number.text.toString()
@@ -102,7 +103,6 @@ class MainActivity : Activity() {
         val rem = remaining.text.toString().toLongOrNull()
         when {
             p.number.isEmpty() -> toast("Введи номер для SMS")
-            rem != null && !hasUsageAccess() -> toast("Сначала выдай доступ к статистике трафика (кнопка 1)")
             else -> {
                 val need = mutableListOf<String>()
                 if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)
@@ -117,8 +117,7 @@ class MainActivity : Activity() {
                     requestPermissions(need.toTypedArray(), 1)
                     toast("Разреши SMS и уведомления, затем нажми ещё раз"); return
                 }
-                p.baselineRemainingMb = rem ?: 0
-                p.baselineTime = if (rem != null) System.currentTimeMillis() else 0
+                if (rem != null) RefillService.resetCounter(this, rem) else p.baselineTime = 0
                 p.awaitingConfirm = false
                 p.lastSentTime = 0
                 p.enabled = true
@@ -149,10 +148,9 @@ class MainActivity : Activity() {
 
     private fun refreshUi() {
         loadSims()
-        toggle.text = if (p.enabled) "Остановить" else "2. Запустить"
+        toggle.text = if (p.enabled) "Остановить" else "Запустить"
         val est = if (p.enabled && p.baselineTime == 0L) "не считается (режим по SMS)" else if (p.enabled) try { "≈ ${RefillService.remainingMb(this)} МБ" } catch (e: Exception) { "?" } else "—"
-        status.text = "Доступ к статистике: ${if (hasUsageAccess()) "есть" else "НЕТ"}\n" +
-            "Работает: ${if (p.enabled) "да" else "нет"}\n" +
+        status.text = "Работает: ${if (p.enabled) "да" else "нет"}\n" +
             "Оценка остатка: $est\n" +
             "Refill сегодня: ${p.sentToday}\n" +
             (if (p.awaitingConfirm) "Жду SMS-подтверждение от Lidl\n" else "") + "\n" + p.log

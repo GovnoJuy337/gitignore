@@ -40,6 +40,13 @@ class Prefs(ctx: Context) {
         get() = sp.getLong("baselineRemainingMb", 0)
         set(v) = sp.edit().putLong("baselineRemainingMb", v).apply()
 
+    var usedBytes: Long
+        get() = sp.getLong("usedBytes", 0)
+        set(v) = sp.edit().putLong("usedBytes", v).apply()
+    var lastCounter: Long
+        get() = sp.getLong("lastCounter", 0)
+        set(v) = sp.edit().putLong("lastCounter", v).apply()
+
     var lastSentTime: Long
         get() = sp.getLong("lastSentTime", 0)
         set(v) = sp.edit().putLong("lastSentTime", v).apply()
