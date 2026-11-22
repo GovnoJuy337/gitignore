@@ -72,7 +72,11 @@ class RefillService : Service() {
             if (rem > p.thresholdMb) return
 
             val now = System.currentTimeMillis()
-            if (now - p.lastSentTime < 3 * 60_000) return // пауза между SMS
+            // Ждём SMS-подтверждение от Lidl до 10 минут, потом пробуем ещё раз.
+            if (now - p.lastSentTime < 10 * 60_000) return
+            if (p.lastSentTime != 0L && p.awaitingConfirm) {
+                addLog(p, "Подтверждение от Lidl не пришло за 10 мин — отправляю Refill повторно")
+            }
             val day = now / 86_400_000
             if (p.dayKey != day) { p.dayKey = day; p.sentToday = 0 }
             if (p.maxPerDay > 0 && p.sentToday >= p.maxPerDay) {
@@ -87,10 +91,25 @@ class RefillService : Service() {
             }
             p.sentToday += 1
             p.lastSentTime = now
-            // Считаем, что Refill сработал: начинаем отсчёт заново.
-            p.baselineRemainingMb = rem + p.packMb
-            p.baselineTime = now
-            addLog(p, "Отправлено «${p.text}» на ${p.number}. Осталось было ~$rem МБ")
+            p.awaitingConfirm = true
+            addLog(p, "Отправлено «${p.text}» на ${p.number} (осталось ~$rem МБ). Жду подтверждение…")
+        }
+
+        /** Пришло SMS «Nachbuchoption ist jetzt gebucht» — засчитываем пакет. */
+        fun onConfirmed(ctx: Context) {
+            val p = Prefs(ctx)
+            if (p.baselineTime == 0L) return
+            val rem = try { remainingMb(ctx) } catch (e: Exception) { p.baselineRemainingMb }
+            p.baselineRemainingMb = maxOf(rem, 0) + p.packMb
+            p.baselineTime = System.currentTimeMillis()
+            p.awaitingConfirm = false
+            p.lastSentTime = 0
+            addLog(p, "Lidl подтвердил пополнение. Теперь ~${p.baselineRemainingMb} МБ")
+        }
+
+        fun isConfirmation(p: Prefs, body: String): Boolean {
+            val norm = { s: String -> s.lowercase().replace(Regex("\\s+"), " ").trim() }
+            return p.confirmText.isNotBlank() && norm(body).contains(norm(p.confirmText))
         }
 
         fun addLog(p: Prefs, msg: String) {

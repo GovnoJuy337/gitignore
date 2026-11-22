@@ -20,6 +20,7 @@ class MainActivity : Activity() {
     private lateinit var thr: EditText
     private lateinit var maxDay: EditText
     private lateinit var remaining: EditText
+    private lateinit var confirm: EditText
     private lateinit var status: TextView
     private lateinit var toggle: Button
 
@@ -44,6 +45,7 @@ class MainActivity : Activity() {
         pack = field(root, "Сколько МБ даёт один Refill", p.packMb.toString(), true)
         thr = field(root, "Слать Refill, когда осталось ≤ (МБ)", p.thresholdMb.toString(), true)
         maxDay = field(root, "Максимум Refill в сутки (0 = без ограничений)", p.maxPerDay.toString(), true)
+        confirm = field(root, "Текст SMS-подтверждения от Lidl (часть)", p.confirmText, false)
         remaining = field(root, "Сколько МБ осталось СЕЙЧАС (посмотри в приложении оператора)", "", true)
 
         root.addView(Button(this).apply {
@@ -71,6 +73,7 @@ class MainActivity : Activity() {
         p.text = text.text.toString().ifBlank { "Refill" }
         p.packMb = pack.text.toString().toLongOrNull() ?: 1024
         p.thresholdMb = thr.text.toString().toLongOrNull() ?: 50
+        p.confirmText = confirm.text.toString()
         p.maxPerDay = maxDay.text.toString().toIntOrNull() ?: 0
     }
 
@@ -90,6 +93,8 @@ class MainActivity : Activity() {
                 val need = mutableListOf<String>()
                 if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)
                     need += Manifest.permission.SEND_SMS
+                if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED)
+                    need += Manifest.permission.RECEIVE_SMS
                 if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                     need += Manifest.permission.POST_NOTIFICATIONS
                 if (need.isNotEmpty()) {
@@ -98,6 +103,8 @@ class MainActivity : Activity() {
                 }
                 p.baselineRemainingMb = rem
                 p.baselineTime = System.currentTimeMillis()
+                p.awaitingConfirm = false
+                p.lastSentTime = 0
                 p.enabled = true
                 RefillService.start(this)
             }
@@ -113,7 +120,8 @@ class MainActivity : Activity() {
         status.text = "Доступ к статистике: ${if (hasUsageAccess()) "есть" else "НЕТ"}\n" +
             "Работает: ${if (p.enabled) "да" else "нет"}\n" +
             "Оценка остатка: $est\n" +
-            "Refill сегодня: ${p.sentToday}\n\n" + p.log
+            "Refill сегодня: ${p.sentToday}\n" +
+            (if (p.awaitingConfirm) "Жду SMS-подтверждение от Lidl\n" else "") + "\n" + p.log
         status.visibility = View.VISIBLE
     }
 }

@@ -45,6 +45,13 @@ class Prefs(ctx: Context) {
     var sentToday: Int
         get() = sp.getInt("sentToday", 0)
         set(v) = sp.edit().putInt("sentToday", v).apply()
+    var awaitingConfirm: Boolean
+        get() = sp.getBoolean("awaitingConfirm", false)
+        set(v) = sp.edit().putBoolean("awaitingConfirm", v).apply()
+    /** Кусок текста SMS-подтверждения от Lidl. */
+    var confirmText: String
+        get() = sp.getString("confirmText", "Nachbuchoption ist jetzt gebucht") ?: ""
+        set(v) = sp.edit().putString("confirmText", v.trim()).apply()
     var log: String
         get() = sp.getString("log", "") ?: ""
         set(v) = sp.edit().putString("log", v).apply()
