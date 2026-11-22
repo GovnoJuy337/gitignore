@@ -12,7 +12,7 @@ class Prefs(ctx: Context) {
     var text: String
         get() = sp.getString("text", "Refill") ?: "Refill"
         set(v) = sp.edit().putString("text", v.trim()).apply()
-    /** Сколько МБ даёт один Refill. */
+    /** До скольких МБ Refill восстанавливает остаток. */
     var packMb: Long
         get() = sp.getLong("packMb", 1024)
         set(v) = sp.edit().putLong("packMb", v).apply()

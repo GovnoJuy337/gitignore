@@ -50,7 +50,7 @@ class MainActivity : Activity() {
         sim = Spinner(this)
         root.addView(sim)
         text = field(root, "Текст SMS", p.text, false)
-        pack = field(root, "Сколько МБ даёт один Refill", p.packMb.toString(), true)
+        pack = field(root, "Сколько МБ становится после Refill", p.packMb.toString(), true)
         thr = field(root, "Слать Refill, когда осталось ≤ (МБ)", p.thresholdMb.toString(), true)
         interval = field(root, "Проверять трафик каждые (секунд, минимум 5)", p.checkSec.toString(), true)
         maxDay = field(root, "Максимум Refill в сутки (0 = без ограничений)", p.maxPerDay.toString(), true)

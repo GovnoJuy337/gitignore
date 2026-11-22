@@ -135,8 +135,8 @@ class RefillService : Service() {
             p.awaitingConfirm = false
             p.lastSentTime = 0
             if (p.baselineTime == 0L) { addLog(p, "Lidl подтвердил пополнение"); return }
-            val rem = try { remainingMb(ctx) } catch (e: Exception) { p.baselineRemainingMb }
-            resetCounter(ctx, maxOf(rem, 0) + p.packMb)
+            // Refill не прибавляет, а сбрасывает остаток до полного пакета.
+            resetCounter(ctx, p.packMb)
             addLog(p, "Lidl подтвердил пополнение. Теперь ~${p.baselineRemainingMb} МБ")
         }
 
