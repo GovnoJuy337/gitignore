@@ -17,7 +17,7 @@ class RefillService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             check(this@RefillService)
-            handler.postDelayed(this, 30_000)
+            handler.postDelayed(this, Prefs(this@RefillService).checkSec.coerceAtLeast(5) * 1000L)
         }
     }
 

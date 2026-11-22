@@ -20,6 +20,7 @@ class MainActivity : Activity() {
     private lateinit var pack: EditText
     private lateinit var thr: EditText
     private lateinit var maxDay: EditText
+    private lateinit var interval: EditText
     private lateinit var remaining: EditText
     private lateinit var confirm: EditText
     private lateinit var warn: EditText
@@ -51,6 +52,7 @@ class MainActivity : Activity() {
         text = field(root, "Текст SMS", p.text, false)
         pack = field(root, "Сколько МБ даёт один Refill", p.packMb.toString(), true)
         thr = field(root, "Слать Refill, когда осталось ≤ (МБ)", p.thresholdMb.toString(), true)
+        interval = field(root, "Проверять трафик каждые (секунд, минимум 5)", p.checkSec.toString(), true)
         maxDay = field(root, "Максимум Refill в сутки (0 = без ограничений)", p.maxPerDay.toString(), true)
         confirm = field(root, "Текст SMS-подтверждения от Lidl (часть)", p.confirmText, false)
         root.addView(TextView(this).apply { this.text = "Текст SMS-предупреждения от Lidl (часть)"; setPadding(0, 24, 0, 0) })
@@ -86,6 +88,7 @@ class MainActivity : Activity() {
         p.confirmText = confirm.text.toString()
         p.warnText = warn.text.toString()
         p.subId = simIds.getOrElse(sim.selectedItemPosition) { -1 }
+        p.checkSec = (interval.text.toString().toIntOrNull() ?: 30).coerceAtLeast(5)
         p.maxPerDay = maxDay.text.toString().toIntOrNull() ?: 0
     }
 

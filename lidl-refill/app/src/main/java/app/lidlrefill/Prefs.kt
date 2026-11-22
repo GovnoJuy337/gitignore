@@ -24,6 +24,10 @@ class Prefs(ctx: Context) {
     var maxPerDay: Int
         get() = sp.getInt("maxPerDay", 0)
         set(v) = sp.edit().putInt("maxPerDay", v).apply()
+    /** Как часто проверять трафик, в секундах. */
+    var checkSec: Int
+        get() = sp.getInt("checkSec", 30)
+        set(v) = sp.edit().putInt("checkSec", v).apply()
     var enabled: Boolean
         get() = sp.getBoolean("enabled", false)
         set(v) = sp.edit().putBoolean("enabled", v).apply()
