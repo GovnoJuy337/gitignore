@@ -17,7 +17,7 @@ class RefillService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             check(this@RefillService)
-            handler.postDelayed(this, 60_000)
+            handler.postDelayed(this, 30_000)
         }
     }
 
@@ -72,10 +72,10 @@ class RefillService : Service() {
             if (rem > p.thresholdMb) return
 
             val now = System.currentTimeMillis()
-            // Ждём SMS-подтверждение от Lidl до 10 минут, потом пробуем ещё раз.
-            if (now - p.lastSentTime < 10 * 60_000) return
+            // Ждём SMS-подтверждение от Lidl до 3 минут, потом пробуем ещё раз.
+            if (now - p.lastSentTime < 3 * 60_000) return
             if (p.lastSentTime != 0L && p.awaitingConfirm) {
-                addLog(p, "Подтверждение от Lidl не пришло за 10 мин — отправляю Refill повторно")
+                addLog(p, "Подтверждение от Lidl не пришло за 3 мин — отправляю Refill повторно")
             }
             val day = now / 86_400_000
             if (p.dayKey != day) { p.dayKey = day; p.sentToday = 0 }
