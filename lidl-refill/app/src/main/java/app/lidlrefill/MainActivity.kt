@@ -72,6 +72,13 @@ class MainActivity : Activity() {
                 }
             }
         })
+        root.addView(Button(this).apply {
+            this.text = "Разрешения приложения (SMS, телефон, уведомления)"
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.fromParts("package", packageName, null)))
+            }
+        })
         toggle = Button(this).apply { setOnClickListener { onToggle() } }
         root.addView(toggle)
         status = TextView(this).apply { setPadding(0, 32, 0, 0) }
@@ -158,7 +165,10 @@ class MainActivity : Activity() {
         loadSims()
         toggle.text = if (p.enabled) "Остановить" else "Запустить"
         val est = if (p.enabled && p.baselineTime == 0L) "не считается (режим по SMS)" else if (p.enabled) try { "≈ ${RefillService.remainingMb(this)} МБ" } catch (e: Exception) { "?" } else "—"
-        status.text = "Работает: ${if (p.enabled) "да" else "нет"}\n" +
+        val ok = { perm: String -> if (checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED) "✓" else "✗ НЕТ" }
+        status.text = "Отправка SMS: ${ok(Manifest.permission.SEND_SMS)}   Получение SMS: ${ok(Manifest.permission.RECEIVE_SMS)}\n" +
+            "Телефон (выбор SIM): ${ok(Manifest.permission.READ_PHONE_STATE)}   Уведомления: ${ok(Manifest.permission.POST_NOTIFICATIONS)}\n" +
+            "Работает: ${if (p.enabled) "да" else "нет"}\n" +
             "Оценка остатка: $est\n" +
             "Refill сегодня: ${p.sentToday}\n" +
 "\n" + p.log
