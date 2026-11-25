@@ -1,8 +1,7 @@
-# Запусти ОДИН раз от администратора: правило брандмауэра + автозапуск слушателя при входе в систему.
+# Запусти один раз (админ не нужен): автозапуск SleepWatch при входе в Windows.
 $dir = $PSScriptRoot
-New-NetFirewallRule -DisplayName 'SleepShutdown' -Direction Inbound -Protocol TCP -LocalPort 8765 -Profile Private -Action Allow | Out-Null
-$act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$dir\listener.ps1`""
+$act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$dir\sleepwatch.ps1`""
 $trg = New-ScheduledTaskTrigger -AtLogOn
-Register-ScheduledTask -TaskName 'SleepShutdown' -Action $act -Trigger $trg -RunLevel Limited -Force | Out-Null
-Start-ScheduledTask -TaskName 'SleepShutdown'
-Write-Host 'Готово. Токен появится в token.txt рядом со скриптом.'
+Register-ScheduledTask -TaskName 'SleepWatch' -Action $act -Trigger $trg -Force | Out-Null
+Start-ScheduledTask -TaskName 'SleepWatch'
+Write-Host 'SleepWatch установлен и запущен. Удалить: Unregister-ScheduledTask SleepWatch -Confirm:$false'
